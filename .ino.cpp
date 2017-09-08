@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2017-09-04 21:38:36
+//This file has been generated on 2017-09-09 00:53:39
 
 #include "Arduino.h"
 #include "nixie_defs.h"
@@ -10,7 +10,7 @@
 #include "K155ID1.h"
 #include "Time.h"
 #include "DS3231.h"
-void expand(uint8_t n, uint8_t &h, uint8_t &l) ;
+void split(uint8_t n, uint8_t &h, uint8_t &l) ;
 void update_time(void) ;
 void update_date(void) ;
 void update_alarm(void) ;

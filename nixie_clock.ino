@@ -1,3 +1,13 @@
+/**
+ * Nixie clock test program
+ *
+ * First prototype firmware
+ * Dinamic indication is used
+ */
+
+/**
+ * Includes
+ */
 #include "nixie_defs.h"
 #include "Arduino.h"
 #include "K155ID1.h"
@@ -7,9 +17,9 @@
 /**
  * Main source headers
  */
-void loop_1000Hz(void);
-void loop_50Hz(void);
-void loop_1Hz(void);
+void loop_1000Hz(void);		// nixie digits update loop
+void loop_50Hz(void);		// menu loop (buttons reading, etc)
+void loop_1Hz(void);		// time update loop
 
 /**
  * Main loop timers
@@ -19,10 +29,15 @@ struct {
 	volatile uint32_t loop_50Hz;		// buttons reading loop	(20 ms period)
 	volatile uint32_t loop_1Hz;			// time updating loop (1000ms period)
 	volatile uint32_t btn_block;		// buttons blocking timer (200ms period)
-	volatile uint32_t buzzer;
-	volatile uint32_t adjust;
+	volatile uint32_t buzzer;			// alarm buzzer update timer
+	volatile uint32_t adjust;			// SET-mode blinking timer
 }timer;
 
+/**
+ * Clock variables and RTC obj
+ */
+DS3231  rtc(SDA, SCL);
+Time  t;
 uint8_t months 	= 0;	// month now
 uint8_t days 	= 0;	// date now
 uint8_t hours 	= 0;	// hour now
@@ -32,9 +47,12 @@ uint8_t hl 		= 0;	// second (right) hour digit
 uint8_t mh 		= 0;	// first (left) minute digit
 uint8_t ml		= 0;	// second (right) minute digit
 uint8_t seppnt  = 0;	// blinking separator state
-uint8_t al_hours   = 0;
-uint8_t al_minutes = 0;
+uint8_t al_hours   = 0;	// alarm hours
+uint8_t al_minutes = 0; // alarm minutes
 
+/**
+ * Buttons states
+ */
 struct{
 	uint8_t mp:1;
 	uint8_t mm:1;
@@ -42,33 +60,45 @@ struct{
 	uint8_t al:1;
 }btn;
 
-uint8_t anodes[4] = { 0, 0, 0, 0 }; // anodes states
+/**
+ * Tubes
+ */
+K155ID1 tube_drv;
+uint8_t anodes[4] = { 0, 0, 0, 0 }; // anodes states (can be represented as bit field)
 
+/**
+ * Backup battery monitor
+ */
 float batt_voltage 	= 0; 	// backup power battary voltage
 float input_voltage = 0;	// normal input voltage
 
+/**
+ * Flags
+ */
 struct {
 	uint8_t disp_type:4;		// TIME/DATE/ALARM
 	uint8_t disp_loop:4;		// anode switching loop flag
-	bool crg:1;				// battery charging flag
+	bool crg:1;					// battery charging flag
 	bool btn_block:1;			// button blocking flag
-	bool al_buzzer:1;
-	uint8_t al_buzz_cnt:4;
-	uint8_t alarm:4;
-	uint8_t adj_type:4;
-	uint8_t blink:1;
+	bool al_buzzer:1;			// buzzer state (off/on)
+	uint8_t al_buzz_cnt:4;		// alarm buzzing counter
+	uint8_t alarm:4;			// alarm state/mode counter
+	uint8_t adj_type:4;			// adjustion type (when in SET-mode)
+	uint8_t blink:1;			// blinking state (when in SET-mode)
 }flags;
 
-K155ID1 tube_drv;
-DS3231  rtc(SDA, SCL);
-
-Time  t;
-
+/**
+ * Common macros
+ */
 #define CRG_ON() 	{ digitalWrite(CRG_OUT, 1); flags.crg = 1; }
 #define CRG_OFF() 	{ digitalWrite(CRG_OUT, 0); flags.crg = 0; }
 #define BLOCK_BTN() { flags.btn_block = 1; timer.btn_block = millis(); }
 
-void expand(uint8_t n, uint8_t &h, uint8_t &l)
+/**
+ * Split
+ * Split a decimal number into separate digits
+ */
+void split(uint8_t n, uint8_t &h, uint8_t &l)
 {
 	h = (uint8_t)(n/10);
 	l = (uint8_t)(n%10);
@@ -84,8 +114,8 @@ void update_time(void)
 
 	hours = hour();
 	minutes = minute();
-	expand(hours, hh, hl);
-	expand(minutes, mh, ml);
+	split(hours, hh, hl);
+	split(minutes, mh, ml);
 }
 
 void update_date(void)
@@ -98,14 +128,14 @@ void update_date(void)
 
 	months = month();
 	days = day();
-	expand(days, hh, hl);
-	expand(months, mh, ml);
+	split(days, hh, hl);
+	split(months, mh, ml);
 }
 
 void update_alarm(void)
 {
-	expand(al_hours, hh, hl);
-	expand(al_minutes, mh, ml);
+	split(al_hours, hh, hl);
+	split(al_minutes, mh, ml);
 }
 
 void set_anodes(uint8_t* anodes)
@@ -196,6 +226,7 @@ void setup()
 
 	rtc.begin();
 	t = rtc.getTime();
+	// set current date when u use new RTC
 //	rtc.setDate(20, 8, 2017);
 	setTime(t.hour, t.min, t.sec, t.date, t.mon, t.year);
 
@@ -206,6 +237,7 @@ void setup()
 	anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 1;	anodes[3] = 0; do_test();
 	anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 1; do_test();
 
+	// reset main loop timers
 	timer.loop_1000Hz = millis();
 	timer.loop_50Hz = millis();
 	timer.loop_1Hz = millis();
@@ -213,6 +245,9 @@ void setup()
 
 void loop()
 {
+	/**
+	 * Main timer controlled loops (pseudo-processes)
+	 */
 	if((millis() - timer.loop_1000Hz) >= 1)
 	{
 		loop_1000Hz();
@@ -231,8 +266,11 @@ void loop()
 		timer.loop_1Hz = millis();
 	}
 
-	adj_update();
-	buzzer_update();
+	/**
+	 * Loops with independent internal timers
+	 */
+	adj_update(); 		// reset timer and toggle blink flag, if u need to make digits blinking (when in SET-mode)
+	buzzer_update();	// make some tone, if alarm is ON (active)
 }
 
 void loop_1000Hz()
@@ -245,10 +283,10 @@ void loop_1000Hz()
 	{
 	case DISP_HH:
 	{
-		if((flags.adj_type == ADJ_TYPE_HR) && (flags.blink == 0)) // если активен режи настройки и мигание в погашенном состоянии
+		if((flags.adj_type == ADJ_TYPE_HR) && (flags.blink == 0)) 			// if SET-mode is active and blink flag is low
 		{
 			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
-		}else{ 	// иначе отображаем как обычно
+		}else{ 																// else display digit as usual
 			anodes[0] = 1;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
 		}
 		set_anodes(anodes);
@@ -347,26 +385,29 @@ void loop_50Hz()
 			{
 				if(flags.adj_type == ADJ_TYPE_MIN)
 				{
-					if(al_minutes < 60)
+					if(al_minutes <= 59)
 					{
 						al_minutes++;
-					}else if(al_minutes >= 60)
+					}
+					if(al_minutes >= 60)
 					{
 						al_minutes = 0;
-						if(al_hours < 24)
+						if(al_hours <= 23)
 						{
 							al_hours++;
-						}else if(al_hours >= 24)
+						}
+						if(al_hours >= 24)
 						{
 							al_hours = 0;
 						}
 					}
 				}else if(flags.adj_type == ADJ_TYPE_HR)
 				{
-					if(al_hours < 24)
+					if(al_hours <= 23)
 					{
 						al_hours++;
-					}else if(al_hours >= 24)
+					}
+					if(al_hours >= 24)
 					{
 						al_hours = 0;
 					}
@@ -430,26 +471,29 @@ void loop_50Hz()
 			{
 				if(flags.adj_type == ADJ_TYPE_MIN)
 				{
-					if((al_minutes >= 0) && (al_minutes < 60))
+					if((al_minutes >= 0) && (al_minutes <= 59))
 					{
 						al_minutes--;
-					}else if(al_minutes > 59)
+					}
+					if(al_minutes > 59)
 					{
 						al_minutes = 59;
-						if((al_hours >= 0) && (al_hours < 24))
+						if((al_hours >= 0) && (al_hours <= 23))
 						{
 							al_hours--;
-						}else if(al_hours > 23)
+						}
+						if(al_hours > 23)
 						{
 							al_hours = 23;
 						}
 					}
 				}else if(flags.adj_type == ADJ_TYPE_HR)
 				{
-					if((al_hours >= 0) && (al_hours < 24))
+					if((al_hours >= 0) && (al_hours <= 23))
 					{
 						al_hours--;
-					}else if(al_hours > 23)
+					}
+					if(al_hours > 23)
 					{
 						al_hours = 23;
 					}
