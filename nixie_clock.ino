@@ -10,6 +10,7 @@
  */
 #include "nixie_defs.h"
 #include "Arduino.h"
+#include <avr/wdt.h>
 #include "K155ID1.h"
 #include "Time.h"
 #include "DS3231.h"
@@ -241,10 +242,13 @@ void setup()
 	timer.loop_1000Hz = millis();
 	timer.loop_50Hz = millis();
 	timer.loop_1Hz = millis();
+
+	wdt_enable(WDTO_4S);
 }
 
 void loop()
 {
+	wdt_reset();
 	/**
 	 * Main timer controlled loops (pseudo-processes)
 	 */
@@ -415,7 +419,6 @@ void loop_50Hz()
 				{
 					flags.alarm = ALARM_STANDBY;
 					seppnt = 1;
-					// TODO: buzzing
 				}
 				update_alarm();
 			}
