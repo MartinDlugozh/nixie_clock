@@ -30,6 +30,7 @@ public:
 
 	void init(uint8_t in_d, uint8_t in_c, uint8_t in_b, uint8_t in_a);
 	void set_digit(uint8_t digit);
+	void reset(void);
 
 private:
 	uint8_t _in[DD_INPUTS];
@@ -128,6 +129,14 @@ void K155ID1::set_digit(uint8_t digit)
 		{
 			digitalWrite(_in[i], _st[cat][i]);
 		}
+	}
+}
+
+void K155ID1::reset(void)
+{
+	for(uint8_t i = 0; i < DD_INPUTS; i++)
+	{
+		digitalWrite(_in[i], 1);
 	}
 }
 

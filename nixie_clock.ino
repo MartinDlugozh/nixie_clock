@@ -281,7 +281,7 @@ void loop_1000Hz()
 {
 	anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
 	set_anodes(anodes);
-	delayMicroseconds(500);		// DO NOT DELETE THIS DELAY!
+	delayMicroseconds(400);		// DO NOT DELETE THIS DELAY!
 
 	switch(flags.disp_loop)
 	{
@@ -289,12 +289,12 @@ void loop_1000Hz()
 	{
 		if((flags.adj_type == ADJ_TYPE_HR) && (flags.blink == 0)) 			// if SET-mode is active and blink flag is low
 		{
-			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
+			tube_drv.reset();
 		}else{ 																// else display digit as usual
 			anodes[0] = 1;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
+			set_anodes(anodes);
+			tube_drv.set_digit(hh);
 		}
-		set_anodes(anodes);
-		tube_drv.set_digit(hh);
 		flags.disp_loop = DISP_HL;
 		break;
 	}
@@ -302,12 +302,12 @@ void loop_1000Hz()
 	{
 		if((flags.adj_type == ADJ_TYPE_HR) && (flags.blink == 0))
 		{
-			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
+			tube_drv.reset();
 		}else{
 			anodes[0] = 0;	anodes[1] = 1;	anodes[2] = 0;	anodes[3] = 0;
+			set_anodes(anodes);
+			tube_drv.set_digit(hl);
 		}
-		set_anodes(anodes);
-		tube_drv.set_digit(hl);
 		flags.disp_loop = DISP_MH;
 		break;
 	}
@@ -315,12 +315,12 @@ void loop_1000Hz()
 	{
 		if((flags.adj_type == ADJ_TYPE_MIN) && (flags.blink == 0))
 		{
-			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
+			tube_drv.reset();
 		}else{
 			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 1;	anodes[3] = 0;
+			set_anodes(anodes);
+			tube_drv.set_digit(mh);
 		}
-		set_anodes(anodes);
-		tube_drv.set_digit(mh);
 		flags.disp_loop = DISP_ML;
 		break;
 	}
@@ -328,12 +328,12 @@ void loop_1000Hz()
 	{
 		if((flags.adj_type == ADJ_TYPE_MIN) && (flags.blink == 0))
 		{
-			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 0;
+			tube_drv.reset();
 		}else{
 			anodes[0] = 0;	anodes[1] = 0;	anodes[2] = 0;	anodes[3] = 1;
+			set_anodes(anodes);
+			tube_drv.set_digit(ml);
 		}
-		set_anodes(anodes);
-		tube_drv.set_digit(ml);
 		flags.disp_loop = DISP_HH;
 		break;
 	}
